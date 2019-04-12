@@ -1,0 +1,145 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import copy
+import math
+import time
+
+def logistic_fn(z):
+    return 1/(1 + math.exp(-z))
+
+def load_data_pairs(type_str):
+    return pd.read_csv(type_str +"_x.csv").values, pd.read_csv(type_str +"_y.csv")
+
+def run_log_reg_model(x, beta):
+    n = x.shape[0]
+    y = np.matmul(x,beta)
+    #print(np.matmul(x[1,:],beta))
+    res = np.zeros((y.shape[0], y.shape[1]))
+    for i in range(len(y)):
+        res[i] = logistic_fn(y[i]) + math.pow(math.e,-100)
+    return res
+
+def calc_log_likelihood(x, y, beta):
+    n = x.shape[0]
+    temp = run_log_reg_model(x, beta)
+    matone = np.ones([y.shape[0],1])
+    #print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",min(temp), max(temp))
+    #t = np.log(temp)
+    sum = np.matmul(np.transpose(y), np.log(temp)) + np.matmul(np.transpose(matone - y), np.log(matone - temp))
+
+    return sum/n
+
+
+
+    # return an avergae, not a sum
+
+def calc_accuracy(x, y, beta):
+    theta_hats = run_log_reg_model(x, beta)
+    yy = np.zeros((y.shape[0], y.shape[1]))
+    for i in range(len(theta_hats)):
+        if theta_hats[i] >= 0.5:
+            yy[i] = 1
+        else:
+            yy[i] = 0
+    counter = 0
+    for j in range(len(y)):
+        if y[j] == yy[j]:
+            counter = counter + 1
+    return counter/y.shape[0]
+
+#########  Model Training
+
+def train_logistic_regression_model(x, y, beta, learning_rate, batch_size, max_epoch):
+    beta = copy.deepcopy(beta)
+    n_batches = x.shape[0]/batch_size
+    n_batches = int(n_batches)
+    train_progress = []
+
+    for epoch_idx in range(max_epoch):
+        for batch_idx in range(n_batches):
+            xx = x[(batch_idx * batch_size): (batch_idx * batch_size + (batch_size - 1)),:]
+            yy = y[(batch_idx * batch_size): (batch_idx * batch_size + (batch_size - 1))]
+            beta_grad = np.matmul(np.transpose(xx), yy - run_log_reg_model(xx, beta))/xx.shape[0]
+            beta = beta + learning_rate * beta_grad
+
+        train_progress.append(calc_log_likelihood(x, y, beta))
+        print("Epoch %d. Train Log Likelihood: %f" %(epoch_idx, train_progress[-1]))
+
+
+    return beta, train_progress
+
+if __name__ == "__main__":
+
+    train_x, train_y = load_data_pairs("train")
+    valid_x, valid_y = load_data_pairs("valid")
+    test_x, test_y = load_data_pairs("test")
+
+    train_x = np.hstack([train_x, np.ones((train_x.shape[0],1))])
+    valid_x = np.hstack([valid_x, np.ones((valid_x.shape[0],1))])
+    test_x = np.hstack([test_x, np.ones((test_x.shape[0], 1))])
+
+    train_y = np.hstack([train_y])
+    valid_y = np.hstack([valid_y])
+    test_y = np.hstack([test_y])
+
+    beta = np.random.normal(loc=0.0, scale =.001, size=(train_x.shape[1],1))
+
+    # learning_rates = [0.001, 0.01, 0.1]
+    # batch_sizes = [train_x.shape[0]]
+
+    learning_rates = [0.1]
+    batch_sizes = [train_x.shape[0]] #1000, 100, 10
+    max_epochs = 250
+
+    valid_ll = []
+    valid_acc = []
+    all_params = []
+    all_train_logs = []
+    all_lrbs = []
+
+    for lr in learning_rates:
+        for bs in batch_sizes:
+
+            final_params, train_progress = train_logistic_regression_model(train_x, train_y, beta, lr, bs, max_epochs)
+            all_params.append(final_params)
+            all_train_logs.append((train_progress, "Learning rate: %f, Batch size: %d" %(lr, bs)))
+            all_lrbs.append("Learning rate: %f, Batch size: %d" % (lr, bs))
+
+            valid_ll.append(calc_log_likelihood(valid_x, valid_y, final_params))
+            valid_acc.append(calc_accuracy(valid_x, valid_y, final_params))
+
+    best_model_idx = np.argmax(valid_acc)
+    best_params = all_params[best_model_idx]
+    print(best_params.shape[0],best_params.shape[1])
+
+    test_ll = calc_log_likelihood(test_x, test_y, best_params)
+    test_acc = calc_accuracy(test_x, test_y, best_params)
+    print(all_lrbs)
+    print("best_model_idx:" + str(best_model_idx))
+    #print("Best Parameters:" + str(best_params))
+    print("Validation Accuracies:" +str(valid_acc))
+    print("Test Accuracy: %f" %(test_acc))
+
+    plt.figure()
+    epochs = range(max_epochs)
+    for idx, log in enumerate(all_train_logs):
+        logolist = []
+        for e in log[0]:
+            logolist.append(float(e[0][0]))
+           # print(e)
+            #print(type(e[0][0]),float(e[0][0]))
+        plt.plot(epochs, logolist, '--', linewidth=3, label="Training," + log[1])    ###LIKELIHOOD OF TRAINING SET
+
+    #print(float(valid_ll[idx][0][0]))
+        plt.plot(epochs, max_epochs * [float(valid_ll[idx][0][0])], '-', linewidth=5, label="Validation," + log[1])  ##LIKELIHOOD OF VALIDATION SET
+
+    #print(test_ll[0][0])
+    plt.plot(epochs, max_epochs * [float(test_ll[0][0])], '*', ms=8, label="Testing," + all_train_logs[best_model_idx][1])  ## LIKELIHOOD OF TEST SET
+
+    plt.xlabel(r"Epoch ($t$)")
+    plt.ylabel("Log Likelihood")
+    plt.ylim([-0.8, 0.0])
+    plt.title("MNIST")
+    plt.legend(loc = 4)
+    plt.show()
