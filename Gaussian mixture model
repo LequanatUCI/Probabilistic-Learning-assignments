@@ -1,0 +1,287 @@
+
+import matplotlib.pyplot as plt
+from random import *
+from statistics import mean
+import numpy as np
+import math
+import matplotlib.mlab as mlab
+import pylab as P
+
+
+def plot_gauss_parameters(mu, covar, colorstr, delta=.1):
+    '''
+    %PLOT_GAUSS:  plot_gauss_parameters(mu, covar,xaxis,yaxis,colorstr)
+    %
+    %  Python function to plot the covariance of a 2-dimensional Gaussian
+    %  model as a "3-sigma" covariance ellipse
+    %
+    %  INPUTS:
+    %   mu: the d-dimensional mean vector of a Gaussian model
+    %   covar: d x d matrix: the d x d covariance matrix of a Gaussian model
+    %   colorstr: string defining the color of the ellipse plotted (e.g., 'r')
+    '''
+
+    # make grid
+
+    x = np.arange(mu[0] - 3.0 * np.sqrt(covar[0,0]), mu[0] + 3.0 * np.sqrt(covar[0,0]), delta)
+    y = np.arange(mu[1] - 3.0 * np.sqrt(covar[1,1]), mu[1] + 3.0 * np.sqrt(covar[1,1]), delta)
+    X, Y = np.meshgrid(x, y)
+
+    # get pdf values
+    Z = mlab.bivariate_normal(X, Y, np.sqrt(covar[0, 0]), np.sqrt(covar[1, 1]), mu[0], mu[1], sigmaxy=covar[0, 1])
+
+    P.contour(X, Y, Z, colors=colorstr, linewidths=4)
+###############################################################################
+###############################################################################
+###############################################################################
+dataset = 'dataset3'
+datafilename = dataset + ".txt"
+valuek = 2
+###############################################################################
+###############################################################################
+###############################################################################
+f = open(datafilename, "r")
+data = f.read()
+#print(data)
+data1 = data.split('\n')
+#print(data1)
+
+xlist = []
+ylist = []
+for e in data1:
+    temp = e.split(' ')
+    while len(temp) > 2:
+        temp.remove('')
+    if len(temp) == 1:
+        continue
+    x = float(temp[0])
+    y = float(temp[1])
+    #print(temp, len(temp))
+    xlist.append(float(x))
+    ylist.append(float(y))
+
+# plt.scatter(xlist, ylist, s=5)
+# plt.show()
+num = len(xlist)
+dim = 2
+data = np.zeros((num,dim))
+for i in range(num):
+    data[i,0] = xlist[i]
+    data[i,1] = ylist[i]
+
+
+# ##########################K-MEANS
+# def calEuclidean(x,y):
+#     dist = 0
+#     for i in range(len(x)):
+#
+#         dist = dist + (x[i]-y[i])**2
+#     return dist
+#
+# valuer = 10
+# sselist = []
+#
+# #for r in range(valuer):
+#
+# #valuek = 3
+# dim = 2
+# temp2 = []
+# for t in range(dim):
+#     temp2.append([])
+#
+#
+# temp = []
+# for w in range(valuek):
+#     temp.append([])
+#
+#
+# kmeans = np.zeros((valuek,dim))
+# for k in range(valuek):
+#     indv = round(uniform(0, num - 1))
+#     kmeans[k,:] = data[indv,:]
+#
+#
+# # newdict = {new_list: [] for new_list in range(valuek)}
+# # prevdict = {new_list: temp for new_list in range(valuek)}
+#
+# newdict = []
+# for k in range(valuek):
+#     newdict.append([])
+# prevdict = []
+# for k in range(valuek):
+#     prevdict.append([])
+#
+# while 1:
+#
+#     newdict = []
+#     for k in range(valuek):
+#         newdict.append([])
+#     for ind in range(num):
+#         templist = []
+#         for j in range(valuek):
+#             templist.append(calEuclidean(data[ind,:], kmeans[j,:]))
+#         minind = templist.index(min(templist))
+#         newdict[minind].append(ind)
+#
+#     sse = 0
+#     for k in range(valuek):
+#         for ind in newdict[k]:
+#             sse = sse + calEuclidean(data[ind,:], kmeans[k,:])
+#     sselist.append(sse)
+#
+#     if newdict == prevdict:
+#         break
+#
+#     for k in range(valuek):
+#         sum = np.zeros((1,dim))
+#         for e in newdict[k]:
+#             sum = sum + data[e,:]
+#
+#         kmeans[k,:] = sum/len(newdict[k])
+#
+#     prevdict = newdict
+#
+# colorlist = ['r', 'b', 'g','c', 'm', 'y', 'k', 'w']
+# for k in range(valuek):
+#     x = []
+#     y = []
+#     for ind in newdict[k]:
+#         x.append(data[ind, 0])
+#         y.append(data[ind, 1])
+#     P.scatter(x, y, s=5, c=colorlist[k], label='cluster'+str(k+1))
+# P.legend(loc='upper left')
+# P.title('k-means for ' + dataset)
+# P.show()
+#
+# plt.plot(range(len(sselist)), sselist, '-.', linewidth=3)
+# plt.title('kmeans: sum squared error for ' + dataset)
+# plt.ylabel('sum squared error')
+# plt.xlabel('iteration')
+# plt.show()
+#
+#
+#
+# #######################
+# #######################
+
+
+
+
+def twoDimGau(x, mean, sigma,dd):
+    #print(sigma)
+
+    cc = np.linalg.det(sigma)
+    c = math.sqrt(1/(( (2 * math.pi)**dd ) * cc))
+    temp1 = x - mean
+    temp2 = np.matmul(temp1, np.linalg.inv(sigma))
+    temp3 = np.matmul( temp2, np.transpose(temp1) )
+    res = c * math.exp( - 0.5 * temp3)
+    return res
+
+
+def calloglikelihood(data, alpha, meanl, sigmal, num, valuek, dim):
+    res = 0
+    for i in range(num):
+        temp = 0
+        for k in range(valuek):
+            temp = temp + alpha[k] * twoDimGau(data[i,:], meanl[k], sigmal[k], dim)
+        res = res + math.log(temp)
+    return res
+
+
+dim = 2
+data = np.zeros((num,dim))
+for i in range(num):
+    data[i,0] = xlist[i]
+    data[i,1] = ylist[i]
+
+# for i in range(num):
+#     onerow = []
+#     for j in range(valuek):
+#         onerow.append(randint(1,10))
+#     summ = sum(onerow)
+#     for p in range(len(onerow)):
+#         wmatrix[i,p] = onerow[p]/summ
+
+
+
+wmatrix = np.zeros((num,valuek)) # N x K
+alpha = np.zeros(valuek)
+listt = []
+for q in range(valuek):
+    listt.append(float(randint(1,10)))
+summ = sum(listt)
+for i in range(len(listt)):
+    tmep = listt[i]/summ
+    alpha[i] = tmep
+
+
+
+times = 500
+timelist = range(times)
+likelihood_list = []
+colorstr = ['r', 'g', 'c', 'y']
+
+meanlist = []
+sigmalist = []
+for k in range(valuek):
+    rn = randint(1,num)
+    meanlist.append(data[rn,:])
+    sigmalist.append(np.cov(np.transpose(data)))
+    #print(type(np.cov(np.transpose(data))))
+
+P.scatter(data[:,0], data[:,1], s=10, c='k', marker='.', alpha=.65, linewidths=2)
+for k in range(valuek):
+    plot_gauss_parameters(meanlist[k], sigmalist[k], colorstr[k], delta=0.01)
+P.title('EM Algorithm: initial parameters for ' + dataset)
+P.show()
+
+for ind in range(times):
+    print('###############',ind)
+    #print(meanlist)
+    ## E-STEP
+
+    for i in range(num):
+        for k in range(valuek):
+            denom = 0
+            for m in range(valuek):
+                denom = denom + alpha[m] * twoDimGau(data[i,:], meanlist[m], sigmalist[m], dim)
+            nomin = alpha[k] * twoDimGau(data[i,:], meanlist[k], sigmalist[k], dim)
+            wmatrix[i,k] = nomin / denom
+
+    ## M-step
+    Nk = sum(wmatrix)
+    alpha = Nk/num
+
+    meanlist = []
+    sigmalist = []
+    for k in range(valuek):
+        temp = np.zeros((1,dim))
+        for i in range(num):
+            temp = temp + wmatrix[i,k] * data[i,:]
+
+        meanlist.append( temp / Nk[k])
+
+    for k in range(valuek):
+        tempsigma = np.zeros((dim, dim))
+        for i in range(num):
+            tempsigma = tempsigma + wmatrix[i,k] * np.matmul(np.transpose( data[i,:] - meanlist[k] ), data[i,:] - meanlist[k])
+        sigmalist.append(tempsigma / Nk[k])
+
+    likelihood = calloglikelihood(data, alpha, meanlist, sigmalist, num, valuek, dim)
+    print(likelihood)
+    likelihood_list.append(likelihood)
+
+
+P.scatter(data[:,0], data[:,1], s=20, c='b', marker='.', alpha=.65, linewidths=2)
+
+for k in range(valuek):
+    plot_gauss_parameters(meanlist[k][0], sigmalist[k], colorstr[k], delta=0.01)
+P.title('EM Algorithm: final parameters for ' + dataset)
+P.show()
+
+plt.plot(timelist, likelihood_list, '--', linewidth=3)
+plt.title('EM Algorithm: log-likelihood for ' + dataset)
+plt.ylabel('log-likelihood')
+plt.xlabel('iteration')
+plt.show()
